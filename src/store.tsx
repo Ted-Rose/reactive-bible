@@ -352,13 +352,21 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         // showAudioPlayer is NOT persisted
       }),
       migrate: (persistedState: any, version: number) => {
+        const state = persistedState || {};
+        
         if (version === 0) {
-          return {
-            ...persistedState,
-            readingPositions: {},
-          };
+          state.readingPositions = {};
         }
-        return persistedState;
+        
+        if (
+          !state.readingPositions ||
+          typeof state.readingPositions !== 'object' ||
+          Array.isArray(state.readingPositions)
+        ) {
+          state.readingPositions = {};
+        }
+        
+        return state;
       },
     }
   )
