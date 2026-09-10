@@ -366,6 +366,26 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
           state.readingPositions = {};
         }
         
+        if (!Array.isArray(state.notes)) {
+          state.notes = [];
+        }
+        
+        if (!Array.isArray(state.tags)) {
+          state.tags = [];
+        }
+        
+        if (!Array.isArray(state.activeVerses)) {
+          state.activeVerses = [];
+        }
+        
+        if (!Array.isArray(state.selectedVerses)) {
+          state.selectedVerses = [];
+        }
+        
+        if (!Array.isArray(state.translations)) {
+          state.translations = [];
+        }
+        
         return state;
       },
     }
