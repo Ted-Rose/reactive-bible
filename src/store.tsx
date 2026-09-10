@@ -313,21 +313,35 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         api.updateReadingPosition(book, chapter, verse);
       },
       prefetchReadingPositions: async () => {
-        const books = api.getBooks().map((b) => b.book_name);
-        const positions = await api.getBulkReadingPositions(books);
-        
-        const validPositions: Record<
-          string,
-          { chapter: number; verse: number }
-        > = {};
-        
-        for (const book of books) {
-          if (positions[book]) {
-            validPositions[book] = positions[book]!;
+        try {
+          const booksData = api.getBooks();
+          if (!Array.isArray(booksData)) {
+            console.error('getBooks() did not return an array');
+            return;
           }
+          
+          const books = booksData.map((b) => b.book_name);
+          const positions =
+            await api.getBulkReadingPositions(books);
+          
+          const validPositions: Record<
+            string,
+            { chapter: number; verse: number }
+          > = {};
+          
+          for (const book of books) {
+            if (positions[book]) {
+              validPositions[book] = positions[book]!;
+            }
+          }
+          
+          set({ readingPositions: validPositions });
+        } catch (error) {
+          console.error(
+            'Error prefetching reading positions:',
+            error
+          );
         }
-        
-        set({ readingPositions: validPositions });
       },
     }),
     {
