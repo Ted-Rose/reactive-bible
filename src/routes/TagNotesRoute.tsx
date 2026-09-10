@@ -11,8 +11,16 @@ import {
   Select,
   ActionIcon,
   Tooltip,
+  Button,
+  Alert,
 } from '@mantine/core';
-import { IconShare, IconRefresh, IconArrowsMaximize, IconArrowsMinimize } from '@tabler/icons-react';
+import {
+  IconShare,
+  IconRefresh,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconInfoCircle,
+} from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import type { MouseEvent } from 'react';
 import { Note, Tag, CommentCounts, PlaylistItem } from '../types';
@@ -43,6 +51,9 @@ export default function TagNotesRoute() {
   const setLastSelectedTagId = useBibleStore(
     (state) => state.setLastSelectedTagId
   );
+  const notesCount = useBibleStore((state) => state.notesCount);
+  const notesPage = useBibleStore((state) => state.notesPage);
+  const notesHasMore = useBibleStore((state) => state.notesHasMore);
   const versesFolded = useBibleStore((state) => state.versesFolded);
   const setVersesFolded = useBibleStore((state) => state.setVersesFolded);
   const setAudioPlaylistItems = useBibleStore(
@@ -51,7 +62,9 @@ export default function TagNotesRoute() {
   const setAudioPlaylistStartIndex = useBibleStore(
     (state) => state.setAudioPlaylistStartIndex
   );
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(
+    (state) => state.isAuthenticated
+  );
   
   type SortOrder =
     | 'custom_asc'
@@ -75,6 +88,19 @@ export default function TagNotesRoute() {
     urlSortOrder && validSortOrders.includes(urlSortOrder)
       ? urlSortOrder
       : 'created_desc';
+
+  // Map frontend sort order to API ordering parameter
+  const getApiOrdering = (sortOrder: SortOrder): string => {
+    const orderingMap: Record<SortOrder, string> = {
+      custom_asc: 'custom',
+      custom_desc: '-custom',
+      created_desc: '-created',
+      created_asc: 'created',
+      verse_asc: 'verse',
+      verse_desc: '-verse',
+    };
+    return orderingMap[sortOrder];
+  };
   const [tag, setTag] = useState<Tag | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +145,16 @@ export default function TagNotesRoute() {
           try { await getTags(); } catch { /* ignore */ }
         }
 
-        await fetchNotes(tagId);
+        // Fetch notes with ordering if non-default sort
+        const apiOrdering =
+          sortOrder !== 'created_desc'
+            ? getApiOrdering(sortOrder)
+            : undefined;
+        
+        await fetchNotes(tagId, {
+          ordering: apiOrdering,
+          page: 1,
+        });
         if (cancelled) return;
 
         const fetchedNotes = useBibleStore.getState().notes;
@@ -163,7 +198,7 @@ export default function TagNotesRoute() {
     return () => {
       cancelled = true;
     };
-  }, [tagId, fetchNotes, getTags, isAuthenticated]);
+  }, [tagId, fetchNotes, getTags, isAuthenticated, sortOrder, getApiOrdering]);
 
   const handleEditNote = (note: Note) => {
     setNoteToEdit(note);
@@ -281,6 +316,44 @@ export default function TagNotesRoute() {
     }
   };
 
+  const handleSortChange = async (newSortOrder: string) => {
+    if (!tagId) return;
+    
+    // Update URL
+    setSearchParams({ sort: newSortOrder });
+    
+    // Check if we can sort client-side
+    const canSortClientSide = notesCount <= 25 && notes.length > 0;
+    
+    if (canSortClientSide) {
+      // Client-side sort - no API call needed
+      console.log('📊 Sorting notes client-side');
+      // Notes will be sorted by the existing sortedNotes logic
+    } else {
+      // Server-side sort - fetch from API
+      console.log('📊 Fetching sorted notes from API');
+      const apiOrdering = getApiOrdering(
+        newSortOrder as SortOrder
+      );
+      await fetchNotes(tagId, { ordering: apiOrdering, page: 1 });
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (!tagId || !notesHasMore) return;
+    
+    const apiOrdering =
+      sortOrder !== 'created_desc'
+        ? getApiOrdering(sortOrder)
+        : undefined;
+    
+    await fetchNotes(tagId, {
+      ordering: apiOrdering,
+      page: notesPage + 1,
+      append: true,
+    });
+  };
+
   const sortedNotes = [...notes].sort((a, b) => {
     switch (sortOrder) {
       case 'custom_asc': {
@@ -395,6 +468,7 @@ export default function TagNotesRoute() {
         };
       });
     setAudioPlaylistItems(items.length > 0 ? items : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes, sortOrder, loading, setAudioPlaylistItems]);
 
   if (loading) {
@@ -441,7 +515,7 @@ export default function TagNotesRoute() {
             value={sortOrder}
             onChange={(v) => {
               if (v) {
-                setSearchParams({ sort: v });
+                handleSortChange(v);
               }
             }}
             data={[
@@ -473,7 +547,10 @@ export default function TagNotesRoute() {
             style={{ width: 170 }}
           />
           <Text color="dimmed" size="sm">
-            {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+            {notes.length}
+            {notesCount > notes.length && ` of ${notesCount}`}
+            {' '}
+            {notes.length === 1 ? 'note' : 'notes'}
           </Text>
           <Tooltip
             label={versesFolded ? "Unfold verses" : "Fold verses"}
@@ -516,6 +593,16 @@ export default function TagNotesRoute() {
       <ScrollArea style={{ height: 'calc(100vh - 200px)' }}>
         {notes.length > 0 ? (
           <Stack spacing="md">
+            {notesCount > 25 &&
+              (sortOrder === 'custom_asc' ||
+                sortOrder === 'custom_desc') && (
+              <Alert icon={<IconInfoCircle />} color="blue">
+                Custom ordering is only available for tags with 25
+                or fewer notes. This tag has {notesCount} notes.
+                Use date or verse ordering instead.
+              </Alert>
+            )}
+            
             <TagSection
               tagName={tag.name}
               notes={sortedNotes}
@@ -531,13 +618,24 @@ export default function TagNotesRoute() {
               onPlayFromNote={handlePlayFromNote}
               commentCounts={commentCounts}
               onCountChange={handleCountChange}
-              isDraggable={(sortOrder === 'custom_asc' || 
-                sortOrder === 'custom_desc') && 
-                isAuthenticated}
+              isDraggable={
+                (sortOrder === 'custom_asc' ||
+                  sortOrder === 'custom_desc') &&
+                isAuthenticated &&
+                notesCount <= 25
+              }
               tagId={tagId || ''}
               onReorder={reorderNotes}
               sortOrder={sortOrder}
             />
+            
+            {notesHasMore && (
+              <Center mt="md">
+                <Button onClick={handleLoadMore} variant="outline">
+                  Load More ({notesCount - notes.length} remaining)
+                </Button>
+              </Center>
+            )}
           </Stack>
         ) : (
           <Center style={{ height: 200 }}>

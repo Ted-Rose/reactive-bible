@@ -745,10 +745,41 @@ export interface Note {
   tag_position: number | null;
 }
 
-export const getNotes = async (tagId?: string): Promise<Note[]> => {
-  const url = tagId
-    ? `${API_BASE_URL}/api/v1/notes/?tag_id=${tagId}`
-    : `${API_BASE_URL}/api/v1/notes/`;
+export interface PaginatedNotesResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Note[];
+}
+
+export const getNotes = async (
+  tagId?: string,
+  options?: {
+    ordering?: string;
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<PaginatedNotesResponse> => {
+  const params = new URLSearchParams();
+  
+  if (tagId) {
+    params.append('tag_id', tagId);
+  }
+  
+  if (options?.ordering) {
+    params.append('ordering', options.ordering);
+  }
+  
+  if (options?.page) {
+    params.append('page', options.page.toString());
+  }
+  
+  if (options?.pageSize) {
+    params.append('page_size', options.pageSize.toString());
+  }
+  
+  const url = `${API_BASE_URL}/api/v1/notes/?${params.toString()}`;
+  
   try {
     const response = await publicFetch(url);
     if (!response.ok) {
@@ -759,6 +790,23 @@ export const getNotes = async (tagId?: string): Promise<Note[]> => {
     console.error('Error fetching notes:', error);
     throw error;
   }
+};
+
+export const getAllNotes = async (
+  tagId?: string
+): Promise<Note[]> => {
+  const allNotes: Note[] = [];
+  let page = 1;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const response = await getNotes(tagId, { page });
+    allNotes.push(...response.results);
+    hasMore = response.next !== null;
+    page++;
+  }
+  
+  return allNotes;
 };
 
 export const getNote = async (noteId: string): Promise<Note> => {

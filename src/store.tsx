@@ -36,6 +36,11 @@ interface BibleState {
   allNotesFetched: boolean;
   showNotes: boolean;
   lastSelectedTagId: string | null;
+  notesCount: number;
+  notesPage: number;
+  notesPageSize: number;
+  notesHasMore: boolean;
+  notesOrdering: string | null;
   audioActiveVerse: AudioActiveVerse | null;
   setAudioActiveVerse: (verse: AudioActiveVerse | null) => void;
   audioPlaylistItems: PlaylistItem[] | null;
@@ -61,12 +66,20 @@ interface BibleState {
   setTranslations: (translations: Translation[]) => void;
   setActiveTextFilesetId: (id: string | null) => void;
   setActiveAudioFilesetId: (id: string | null) => void;
-  fetchNotes: (tagId?: string) => Promise<void>;
+  fetchNotes: (
+    tagId?: string,
+    options?: {
+      ordering?: string;
+      page?: number;
+      append?: boolean;
+    }
+  ) => Promise<void>;
   getTags: (forceRefresh?: boolean) => Promise<void>;
   deleteNote: (noteId: string) => Promise<void>;
   reorderNotes: (tagId: string, noteIds: string[]) => Promise<void>;
   setShowNotes: (show: boolean) => void;
   setLastSelectedTagId: (tagId: string | null) => void;
+  setNotesPage: (page: number) => void;
 }
 
 // Define and export the initial state for reusability and testing
@@ -86,6 +99,11 @@ export const initialState = {
   allNotesFetched: false,
   showNotes: false,
   lastSelectedTagId: null,
+  notesCount: 0,
+  notesPage: 1,
+  notesPageSize: 25,
+  notesHasMore: false,
+  notesOrdering: null,
   audioActiveVerse: null as AudioActiveVerse | null,
   audioPlaylistItems: null as PlaylistItem[] | null,
   audioPlaylistStartIndex: null as number | null,
@@ -130,28 +148,64 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         set({ activeTextFilesetId }),
       setActiveAudioFilesetId: (activeAudioFilesetId) =>
         set({ activeAudioFilesetId }),
-      fetchNotes: async (tagId?: string) => {
+      fetchNotes: async (tagId?: string, options = {}) => {
         try {
-          // Check cache first
-          if (tagId) {
+          const { ordering, page = 1, append = false } = options;
+          
+          // Check cache only for first page with default ordering
+          if (
+            !append &&
+            page === 1 &&
+            !ordering &&
+            tagId
+          ) {
             const cachedNotes = getCachedNotes(tagId);
             if (cachedNotes) {
-              console.log(`✅ Using cached notes for tag: ${tagId} (${cachedNotes.length} notes)`);
-              set({ notes: cachedNotes, allNotesFetched: false, lastSelectedTagId: tagId });
+              console.log(
+                `✅ Using cached notes for tag: ${tagId} ` +
+                `(${cachedNotes.length} notes)`
+              );
+              set({
+                notes: cachedNotes,
+                notesCount: cachedNotes.length,
+                notesPage: 1,
+                notesHasMore: false,
+                notesOrdering: null,
+                lastSelectedTagId: tagId,
+              });
               return;
             }
           }
-
+          
           // Fetch from API
-          console.log(`📝 Fetching notes from API for tag: ${tagId || 'all'}`);
-          const notes = await api.getNotes(tagId);
-
-          // Cache the results
-          if (tagId) {
-            cacheNotes(tagId, notes);
+          console.log(
+            `📝 Fetching notes from API for tag: ` +
+            `${tagId || 'all'} ` +
+            `(page ${page}, ordering: ${ordering || 'default'})`
+          );
+          
+          const response = await api.getNotes(tagId, {
+            ordering,
+            page,
+            pageSize: 25,
+          });
+          
+          // Cache first page results with default ordering
+          if (page === 1 && !ordering && tagId) {
+            cacheNotes(tagId, response.results);
           }
-
-          set({ notes, allNotesFetched: !tagId, lastSelectedTagId: tagId || null });
+          
+          set((state) => ({
+            notes: append
+              ? [...state.notes, ...response.results]
+              : response.results,
+            notesCount: response.count,
+            notesPage: page,
+            notesHasMore: response.next !== null,
+            notesOrdering: ordering || null,
+            allNotesFetched: !tagId && !response.next,
+            lastSelectedTagId: tagId || null,
+          }));
         } catch (error) {
           console.error('Error fetching notes:', error);
           showNotification({
@@ -226,7 +280,9 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         });
       },
       setShowNotes: (showNotes) => set({ showNotes }),
-      setLastSelectedTagId: (lastSelectedTagId) => set({ lastSelectedTagId }),
+      setLastSelectedTagId: (lastSelectedTagId) =>
+        set({ lastSelectedTagId }),
+      setNotesPage: (page) => set({ notesPage: page }),
       setAudioActiveVerse: (audioActiveVerse) =>
         set({ audioActiveVerse }),
       setAudioPlaylistItems: (audioPlaylistItems) =>
