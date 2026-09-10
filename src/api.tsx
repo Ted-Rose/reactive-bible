@@ -983,3 +983,89 @@ export const fetchCommentCounts = async (params: {
     throw error;
   }
 };
+
+// ============================================
+// READING POSITION FUNCTIONS
+// ============================================
+
+export interface ReadingPosition {
+  id: string;
+  book: string;
+  chapter: number;
+  verse: number;
+  last_accessed: string;
+}
+
+/**
+ * Get reading position for a specific book
+ */
+export const getReadingPosition = async (
+  book: string
+): Promise<ReadingPosition | null> => {
+  try {
+    const response = await authenticatedFetch(
+      `${API_BASE_URL}/api/v1/reading-positions/?book=${
+        encodeURIComponent(book)
+      }`
+    );
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error('Failed to fetch reading position');
+    }
+    const data = await response.json();
+    return data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Error fetching reading position:', error);
+    return null;
+  }
+};
+
+/**
+ * Update reading position for current book/chapter/verse
+ */
+export const updateReadingPosition = async (
+  book: string,
+  chapter: number,
+  verse = 1
+): Promise<void> => {
+  try {
+    const response = await authenticatedFetch(
+      `${API_BASE_URL}/api/v1/reading-positions/`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ book, chapter, verse }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to update reading position');
+    }
+  } catch (error) {
+    console.error('Error updating reading position:', error);
+  }
+};
+
+/**
+ * Bulk fetch reading positions for multiple books
+ */
+export const getBulkReadingPositions = async (
+  books: string[]
+): Promise<
+  Record<string, { chapter: number; verse: number } | null>
+> => {
+  try {
+    const response = await authenticatedFetch(
+      `${API_BASE_URL}/api/v1/reading-positions/bulk/`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ books }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch bulk reading positions');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching bulk reading positions:', error);
+    return {};
+  }
+};

@@ -46,6 +46,10 @@ interface BibleState {
   setAudioPlaylistEnded: (ended: boolean) => void;
   versesFolded: boolean;
   setVersesFolded: (folded: boolean) => void;
+  readingPositions: Record<
+    string,
+    { chapter: number; verse: number }
+  >;
   setActiveBook: (activeBook: string) => void;
   setActiveBookAndChapter: (
     activeBook: string,
@@ -67,6 +71,13 @@ interface BibleState {
   reorderNotes: (tagId: string, noteIds: string[]) => Promise<void>;
   setShowNotes: (show: boolean) => void;
   setLastSelectedTagId: (tagId: string | null) => void;
+  setActiveBookWithPosition: (activeBook: string) => Promise<void>;
+  syncReadingPosition: (
+    book: string,
+    chapter: number,
+    verse?: number
+  ) => Promise<void>;
+  prefetchReadingPositions: () => Promise<void>;
 }
 
 // Define and export the initial state for reusability and testing
@@ -91,6 +102,10 @@ export const initialState = {
   audioPlaylistStartIndex: null as number | null,
   audioPlaylistEnded: false,
   versesFolded: false,
+  readingPositions: {} as Record<
+    string,
+    { chapter: number; verse: number }
+  >,
 };
 
 export const useBibleStore = createWithEqualityFn<BibleState>()(
@@ -254,6 +269,54 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
           }, 50);
         }
       },
+      setActiveBookWithPosition: async (activeBook) => {
+        const { readingPositions } = useBibleStore.getState();
+        
+        let position = readingPositions[activeBook];
+        
+        if (!position) {
+          const apiPosition = await api.getReadingPosition(activeBook);
+          if (apiPosition) {
+            position = {
+              chapter: apiPosition.chapter,
+              verse: apiPosition.verse
+            };
+            set((state) => ({
+              readingPositions: {
+                ...state.readingPositions,
+                [activeBook]: position!
+              }
+            }));
+          }
+        }
+        
+        set({
+          activeBook,
+          activeChapter: position?.chapter || 1,
+          activeVerses: position?.verse ? [position.verse] : [],
+          audioActiveVerse: null
+        });
+      },
+      syncReadingPosition: async (
+        book: string,
+        chapter: number,
+        verse = 1
+      ) => {
+        set((state) => ({
+          readingPositions: {
+            ...state.readingPositions,
+            [book]: { chapter, verse }
+          }
+        }));
+        
+        api.updateReadingPosition(book, chapter, verse);
+      },
+      prefetchReadingPositions: async () => {
+        const books = api.getBooks().map((b) => b.book_name);
+        const positions = await api.getBulkReadingPositions(books);
+        
+        set({ readingPositions: positions as any });
+      },
     }),
     {
       name: "bible-storage",
@@ -272,6 +335,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         audioActiveVerse: state.audioActiveVerse,
         notes: state.notes,
         tags: state.tags,
+        readingPositions: state.readingPositions,
         // showAudioPlayer is NOT persisted
       }),
     }

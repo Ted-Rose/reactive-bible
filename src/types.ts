@@ -77,3 +77,11 @@ export interface AudioActiveVerse {
   chapter: number;
   verse: number;
 }
+
+export interface ReadingPosition {
+  id: string;
+  book: string;
+  chapter: number;
+  verse: number;
+  last_accessed: string;
+}

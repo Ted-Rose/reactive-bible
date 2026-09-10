@@ -58,7 +58,12 @@ const BibleSelector = ({
   const activeBook = useBibleStore((state) => state.activeBook);
   const activeChapter = useBibleStore((state) => state.activeChapter);
   const activeVerses = useBibleStore((state) => state.activeVerses);
-  const setActiveBookShort = useBibleStore((state) => state.setActiveBookShort);
+  const setActiveBookShort = useBibleStore(
+    (state) => state.setActiveBookShort
+  );
+  const setActiveBookWithPosition = useBibleStore(
+    (state) => state.setActiveBookWithPosition
+  );
 
   return (
     <Navbar
@@ -86,11 +91,21 @@ const BibleSelector = ({
                     [classes.linkActive]: activeBook === book.book_name,
                   })}
                   href="/"
-                  onClick={(event) => {
+                  onClick={async (event) => {
                     event.preventDefault();
-                    console.log(`🔗 Navigating to: /bible/${book.book_name}/1`);
                     setActiveBookShort(book.book_id);
-                    navigate(`/bible/${book.book_name}/1`);
+                    
+                    await setActiveBookWithPosition(book.book_name);
+                    
+                    const state = useBibleStore.getState();
+                    console.log(
+                      `🔗 Navigating to: /bible/${book.book_name}/${
+                        state.activeChapter
+                      }`
+                    );
+                    navigate(
+                      `/bible/${book.book_name}/${state.activeChapter}`
+                    );
                   }}
                   key={book.book_id}
                   title={"nav-book-" + book.book_id}

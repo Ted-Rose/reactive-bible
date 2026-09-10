@@ -37,6 +37,7 @@ const PassageView = () => {
     activeAudioFilesetId,
     showAudioPlayer,
     translations,
+    syncReadingPosition,
   } = useBibleStore(
     (state) => ({
       activeBook: state.activeBook,
@@ -45,6 +46,7 @@ const PassageView = () => {
       activeAudioFilesetId: state.activeAudioFilesetId,
       showAudioPlayer: state.showAudioPlayer,
       translations: state.translations,
+      syncReadingPosition: state.syncReadingPosition,
     }),
     shallow
   );
@@ -194,11 +196,17 @@ const PassageView = () => {
           }, 50);
         }
 
+        syncReadingPosition(activeBook, activeChapter, 1);
+
         // Prefetch current chapter audio (parallel)
         prefetchAudioUrl(activeBook, activeChapter, activeAudioFilesetId);
 
         // Prefetch next chapter audio (parallel)
-        prefetchAudioUrl(activeBook, activeChapter + 1, activeAudioFilesetId);
+        prefetchAudioUrl(
+          activeBook,
+          activeChapter + 1,
+          activeAudioFilesetId
+        );
 
         // Prefetch adjacent chapters (parallel)
         prefetchAdjacentChapters(
@@ -210,13 +218,21 @@ const PassageView = () => {
       .catch((error) => {
         console.error(error);
         setFetchError(
-          error instanceof Error ? error.message : 'Failed to load text'
+          error instanceof Error
+            ? error.message
+            : 'Failed to load text'
         );
         setVerses([]);
         setHeadings([]);
         setLoading(false);
       });
-  }, [activeBook, activeChapter, activeTextFilesetId, activeAudioFilesetId]);
+  }, [
+    activeBook,
+    activeChapter,
+    activeTextFilesetId,
+    activeAudioFilesetId,
+    syncReadingPosition,
+  ]);
 
   if (loading) {
     return (
