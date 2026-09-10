@@ -332,6 +332,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
     }),
     {
       name: "bible-storage",
+      version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeBook: state.activeBook,
@@ -350,6 +351,15 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         readingPositions: state.readingPositions,
         // showAudioPlayer is NOT persisted
       }),
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          return {
+            ...persistedState,
+            readingPositions: {},
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );
