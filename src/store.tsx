@@ -270,7 +270,8 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         }
       },
       setActiveBookWithPosition: async (activeBook) => {
-        const { readingPositions } = useBibleStore.getState();
+        const state = useBibleStore.getState();
+        const readingPositions = state.readingPositions || {};
         
         let position = readingPositions[activeBook];
         
@@ -281,9 +282,9 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
               chapter: apiPosition.chapter,
               verse: apiPosition.verse
             };
-            set((state) => ({
+            set((currentState) => ({
               readingPositions: {
-                ...state.readingPositions,
+                ...(currentState.readingPositions || {}),
                 [activeBook]: position!
               }
             }));
@@ -304,7 +305,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
       ) => {
         set((state) => ({
           readingPositions: {
-            ...state.readingPositions,
+            ...(state.readingPositions || {}),
             [book]: { chapter, verse }
           }
         }));
@@ -315,7 +316,18 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         const books = api.getBooks().map((b) => b.book_name);
         const positions = await api.getBulkReadingPositions(books);
         
-        set({ readingPositions: positions as any });
+        const validPositions: Record<
+          string,
+          { chapter: number; verse: number }
+        > = {};
+        
+        for (const book of books) {
+          if (positions[book]) {
+            validPositions[book] = positions[book]!;
+          }
+        }
+        
+        set({ readingPositions: validPositions });
       },
     }),
     {
