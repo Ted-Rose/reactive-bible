@@ -20,6 +20,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { useAuthStore } from "./stores/authStore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import VerseActionToolbar from "./components/VerseActionToolbar";
+import { useBibleStore } from "./store";
 
 export default function App() {
   const [colorScheme, setColorScheme] = useLocalStorage<ColorScheme>({
@@ -39,6 +40,7 @@ export default function App() {
 
   // Check authentication on app load
   const checkAuth = useAuthStore((state) => state.checkAuth);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   
   useEffect(() => {
     // Check if user is authenticated from localStorage
@@ -46,6 +48,15 @@ export default function App() {
     // Clean up expired audio URLs
     clearExpiredAudioUrls();
   }, [checkAuth]);
+
+  useEffect(() => {
+    const prefetchReadingPositions = useBibleStore.getState()
+      .prefetchReadingPositions;
+    
+    if (isAuthenticated) {
+      prefetchReadingPositions();
+    }
+  }, [isAuthenticated]);
   
   // Check if we're on an auth page (login/register)
   const location = useLocation();
