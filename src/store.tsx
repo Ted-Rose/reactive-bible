@@ -346,7 +346,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
     }),
     {
       name: "bible-storage",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeBook: state.activeBook,
@@ -368,7 +368,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
       migrate: (persistedState: any, version: number) => {
         const state = persistedState || {};
         
-        if (version === 0) {
+        if (version < 2) {
           state.readingPositions = {};
         }
         
