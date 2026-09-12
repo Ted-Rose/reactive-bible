@@ -117,14 +117,16 @@ export default function TagNotesRoute() {
     return () => {
       setAudioPlaylistItems(null);
     };
-  }, [setShowNotes, setLastSelectedTagId, tagId, setAudioPlaylistItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagId]);
 
   // Always refresh tags when navigating to this route
   useEffect(() => {
     if (isAuthenticated) {
       getTags(true); // Force refresh to get latest tags
     }
-  }, [getTags, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;
