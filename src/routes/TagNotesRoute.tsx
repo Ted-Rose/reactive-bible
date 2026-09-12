@@ -42,7 +42,8 @@ export default function TagNotesRoute() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [noteToEdit, setNoteToEdit] = useState<Note | null>(null);
   
-  const notes = useBibleStore((state) => state.notes);
+  const notesFromStore = useBibleStore((state) => state.notes);
+  const notes = Array.isArray(notesFromStore) ? notesFromStore : [];
   const storedTags = useBibleStore((state) => state.tags);
   const fetchNotes = useBibleStore((state) => state.fetchNotes);
   const getTags = useBibleStore((state) => state.getTags);
