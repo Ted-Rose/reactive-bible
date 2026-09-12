@@ -225,7 +225,7 @@ export const useBibleStore = createWithEqualityFn<BibleState>()(
         }
 
         // Fetch from API
-        console.log('📝 Fetching tags from API', new Error().stack);
+        console.log('📝 Fetching tags from API');
         try {
           const tags = await api.getTags();
           set({ tags });
